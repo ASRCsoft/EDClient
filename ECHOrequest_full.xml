@@ -1,0 +1,52 @@
+<!-- ECHO Download Request
+     Version: 3/2015
+	 Notes:
+	 1. Format of 'startdatetime' and 'enddatetime' MUST BE:
+	    "YYYY-MM-DDTHH:MM:SSZ"
+		where:
+		   YYYY is the year
+		   MM   is the month
+		   DD   is the day
+		   T    separate date and time
+		   HH   is hour in UTC
+		   MM   is minutes UTC
+		   SS   is seconds UTC
+     2. Comments in this XML file are ignored
+     3. The 'dirRoot' attribute of the 'echoDownload' element
+        should point to the top level directory where ECHO
+        data is to be stored (used if command line option
+        -o D is specified)
+        ** The 'dirRoot' attribute is REQUIRED **
+-->
+<echoDownload dirRoot="/home/mark/PycharmProjects/EDclient/ECHO">
+  <dataset shortname="AE_L2A">
+     <version v="3" />
+     <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
+     <startdatetime dtstr="2007-04-07T00:00:00Z" />
+     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+  </dataset>
+  <dataset shortname="AE_Rain">
+     <version v="2" />
+     <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
+     <startdatetime dtstr="2007-04-07T00:00:00Z" />
+     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+  </dataset>
+  <dataset shortname="MYD06_L2">
+     <version v="5" />
+     <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
+     <startdatetime dtstr="2007-04-07T00:00:00Z" />
+     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+  </dataset>
+  <dataset shortname="TRMM_1B11">
+     <version v="7" />
+     <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
+     <startdatetime dtstr="2007-04-07T00:00:00Z" />
+     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+  </dataset>
+  <dataset shortname="TRMM_2A12">
+     <version v="7" />
+     <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
+     <startdatetime dtstr="2007-04-07T00:00:00Z" />
+     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+  </dataset>
+</echoDownload>
