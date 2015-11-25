@@ -1,7 +1,7 @@
 """
    Python Module: 'EDClient' (ECHO Data Client)
-   Version Date : September 2015
-   Atmospheric Sciences Researc Center
+   Version Date : November 2015
+   Atmospheric Sciences Research Center
    Python Env   : Anaconda Python (2.7.10)
 """
 import os
@@ -15,13 +15,14 @@ import MySQLdb
 from lxml.etree import XMLSyntaxError
 from re import sub as resub
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # We should ignore SIGPIPE when using pycurl.NOSIGNAL - see
 # the libcurl tutorial for more info.
 try:
     import signal
     from signal import SIGPIPE, SIG_IGN
+
     signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 except ImportError:
     EDClog.write("EDClient::Problem importing and resetting signals\n")
@@ -29,22 +30,21 @@ except ImportError:
 
 
 class runManager(object):
-
     def __init__(self):
 
         self.dtStamp = dt.datetime.now()
         self.dtStamp = self.dtStamp.replace(microsecond=0)
 
         self.dtString = self.dtStamp.isoformat('T')
-        self.dtString = self.dtString.replace("-","_")
-        self.dtString = self.dtString.replace(":","_")
+        self.dtString = self.dtString.replace("-", "_")
+        self.dtString = self.dtString.replace(":", "_")
 
-        self.logfilename = "EDClient_" + self.dtString + ".log"
+        self.logfilename = "./EDClient_" + self.dtString + ".log"
 
         self.setLogFH(self.logfilename)
         self.setCmdLineArgs()
 
-    def setLogFH(self,fname):
+    def setLogFH(self, fname):
         try:
             self.logfh = open(fname, 'w')
         except IOError:
@@ -53,7 +53,7 @@ class runManager(object):
             raise SystemExit
 
     def getLogFH(self):
-        return(self.logfh)
+        return (self.logfh)
 
     def setCmdLineArgs(self):
 
@@ -71,7 +71,6 @@ class runManager(object):
         self.opMode = args.opmode
         self.MAXdataFiles = args.resultsize
         self.dwnloadSize = args.downloadlimit
-
 
     def getopMode(self):
         return self.opMode
@@ -93,12 +92,12 @@ class ECHOrequest(object):
     the XML configuration file
     """
 
-    #Create an instance of a parser object, and give it the ability
-    #to remove comments from XML data
+    # Create an instance of a parser object, and give it the ability
+    # to remove comments from XML data
     parser = ET.XMLParser(remove_comments=True)
 
     def __init__(self, runMgr):
-        """
+        """EDClient_2015_11_24T08_47_12.log
         :param cla: Command line arguments
         """
         self.xmlConfigFile = runMgr.getXMLfile()
@@ -109,7 +108,7 @@ class ECHOrequest(object):
         self.dataSetQueries = []
         self.numDatasetQueries = 0
         self.numCollections = 0
-        self.havePendDwnld = False      # assume no pending downloads
+        self.havePendDwnld = False  # assume no pending downloads
         self.pdlfile = "pendingDwnld.xml"
 
         # Check to see if there are any pending downloads that
@@ -153,7 +152,8 @@ class ECHOrequest(object):
         try:
             self.edrTree = ET.parse(self.xmlFileObj, self.parser)  # Use XML 'parser' define as class variable
         except ET.ParseError:
-            EDClog.write("\tCould not parse download request file (" + self.xmlConfigFile + ") please check XML syntax\n")
+            EDClog.write(
+                "\tCould not parse download request file (" + self.xmlConfigFile + ") please check XML syntax\n")
             return False
 
         # Now assign the XML root to 'edrRoot' and check that the root element
@@ -180,7 +180,7 @@ class ECHOrequest(object):
             EDClog.write("\tYou do not have permission to write to " + self.directoryRoot + "\n")
             return False
 
-        # Check specified number of data files to download. 
+        # Check specified number of data files to download.
         if (self.maxDataFiles < 1 or self.maxDataFiles > 2000):
             EDClog.write("\tInvalid result set size (" + str(self.maxDataFiles) + "), should be >= 1 and <= 2000\n")
             return False
@@ -211,13 +211,14 @@ class ECHOrequest(object):
         vinfo = ""
         sdatetime = ""
         edatetime = ""
+        temporal_start_day = ""
+        temporal_end_day = ""
 
         EDClog.write("ECHOrequest::loadDataSetQueries\n")
         for dataset in self.edrRoot:
             vFlag = False  # dataset criteria flags for version,
             bbFlag = False  # boundingbox,
-            stFlag = False  # startdatetime and
-            etFlag = False  # enddatetime : used for validation
+            tFlag = False
             shortName = dataset.get("shortname")  # get shortname attribute of dataset
             for criteria in dataset:
                 critname = criteria.tag
@@ -237,25 +238,136 @@ class ECHOrequest(object):
                     vinfo = criteria.get("v")
                     vFlag = True
 
-                elif (critname == "startdatetime"):
-                    sdatetime = criteria.get("dtstr")
-                    stFlag = True
+                elif (critname == "temporal"):
+                    tFlag = True
+                    temporalSearchType = criteria.get('type', default="")
+                    if len(temporalSearchType) == 0:
+                        EDClog.write(
+                            "\tMissing temporal search type in XML request file, valid are ('static', 'recurring')")
+                        return False
 
-                elif (critname == "enddatetime"):
-                    edatetime = criteria.get("dtstr")
-                    etFlag = True
+                    if (temporalSearchType == "static"):
+                        stFlag = False
+                        etFlag = False
+                        for tcrit in criteria:
+                            if (tcrit.tag == "startdatetime"):
+                                sdatetime = tcrit.text
+                                stFlag = True
+                            if (tcrit.tag == "enddatetime"):
+                                edatetime = tcrit.text
+                                etFlag = True
+
+                        if (not (stFlag and etFlag)):
+                            EDClog.write("\tMissing elements in static temporal search criteria")
+                            return False
+
+                    elif (temporalSearchType == "recurring"):
+                        yearFlag = False
+                        startFlag = False
+                        endFlag = False
+                        for tcrit in criteria:
+                            if (tcrit.tag == "year"):
+                                yr_start = tcrit.get("yr_start", default="")
+                                yr_end = tcrit.get("yr_end", default="")
+
+                                if (len(yr_start) != 0 and len(yr_end) != 0):
+                                    if (int(yr_start) > int(yr_end)):
+                                        EDClog.write("\tStart year past end year in temporal recurring search criteria")
+                                        return False
+                                    yearFlag = True
+
+                            if (tcrit.tag == "start"):
+                                mon_start = tcrit.get("mon_start", default="")
+                                day_start = tcrit.get("day_start", default="")
+                                tim_start = tcrit.get("tim_start", default="")
+
+                                if (len(mon_start) != 0 and len(day_start) != 0 and len(tim_start) != 0):
+                                    if (int(mon_start) < 1 or int(mon_start) > 12):
+                                        EDClog.write("\tInvalid start month in temporal recurring search criteria");
+                                        return False
+                                    if (int(day_start) < 1 or int(day_start) > 31):
+                                        EDClog.write("\tInvalid start day in temporal recurring search criteria")
+                                        return False
+                                    startFlag = True
+
+                            if (tcrit.tag == "end"):
+                                mon_end = tcrit.get("mon_end", default="")
+                                day_end = tcrit.get("day_end", default="")
+                                tim_end = tcrit.get("tim_end", default="")
+
+                                if (len(mon_end) != 0 and len(day_end) != 0 and len(tim_end) != 0):
+                                    if (int(mon_end) < 1 or int(mon_end) > 12):
+                                        EDClog.write("\tInvalid end month in temporal recurring search criteria")
+                                        return False
+                                    if (int(day_end) < 1 or int(day_end) > 31):
+                                        EDClog.write("\tInvalid end day in temporal recurring search criteria")
+                                        return False
+                                    endFlag = True
+
+                        if (int(mon_start) > int(mon_end)):
+                            EDClog.write("\tMonth start past month end in temporal recurring search criteria")
+                            return False
+
+                        if (not (yearFlag and startFlag and endFlag)):
+                            EDClog.write("\tInvalid or missing recurring temporal search criteria")
+                            return False
+
+                        # Now, since this is a request for a temporal recurring search we need to
+                        # figure out the starting and ending year days based on the use request.
+                        # Bit of a trick here.  The ECHO REST specification for a temporal search
+                        # (https://api.echo.nasa.gov/catalog-rest/catalog-docs/index.html) is as
+                        # follows:
+                        #
+                        # At least one of a temporal_start or temporal_end datetime string which
+                        # is then followed by a temporal_start_day and/or temporal_end_day (day
+                        # of year).  But because a year might be a leap year we need to make
+                        # sure the temporal_start_day and temporal_end_day encapsulate the recurring
+                        # date range the user requested.  To do this, we calculate the day of year
+                        # for the starting month/day for all years and take the minimum and use it
+                        # as the temporal_start_day, and then calculate the day of year for the
+                        # ending month/day for all years and take the maximum and use it as the
+                        # temporal_end_day.
+
+                        temporal_start_list = []
+                        temporal_end_list = []
+                        intMonStart = int(mon_start)
+                        intDayStart = int(day_start)
+                        intMonEnd = int(mon_end)
+                        intDayEnd = int(day_end)
+                        for yr in range(int(yr_start), int(yr_end) + 1):
+                            sDate = dt.date(yr, intMonStart, intDayStart)
+                            sdoy = sDate.toordinal() - dt.date(yr, 1, 1).toordinal() + 1
+                            temporal_start_list.append(sdoy)
+                            eDate = dt.date(yr, intMonEnd, intDayEnd)
+                            edoy = eDate.toordinal() - dt.date(yr, 1, 1).toordinal() + 1
+                            temporal_end_list.append(edoy)
+
+                        temporal_start_day = min(temporal_start_list)
+                        temporal_end_day = max(temporal_end_list)
+
+                        # Now build the 'sdatetime' and 'edatetime' strings for a recurring
+                        # temporal search.  Note that the month/day components are used to
+                        # create bounds to encapsulate the user desired starting and ending
+                        # day of year values.
+                        sdatetime = yr_start + '-01-01T' + tim_start
+                        edatetime = yr_end + '-12-31T' + tim_end
+
+                    else:
+                        EDClog.write("\tInvalid temporal search type, (valid are 'static', 'recurring')")
+                        return False
 
                 else:
-                    EDClog.write("\tInvalid dataset search criteria (" + critname + ") specified in XML download request file")
+                    EDClog.write(
+                        "\tInvalid dataset search criteria (" + critname + ") specified in XML download request file")
                     return False
 
-            if (not (bbFlag and vFlag and stFlag and etFlag)):
-                EDClog.write(
-                    "\tMissing dataset criteria in XML input, (valid are 'version', 'boundingbox', 'startdatetime', 'enddatetime')")
+            if (not (bbFlag and vFlag and tFlag)):
+                EDClog.write("\tMissing bounding box, version, or temporal criteria in XML input")
                 return False
 
             self.numDatasetQueries += 1
-            dsQuery = ECHOdsQuery(shortName, vinfo, bb, sdatetime, edatetime)
+            dsQuery = ECHOdsQuery(shortName, vinfo, bb, temporalSearchType,
+                                  sdatetime, edatetime, temporal_start_day, temporal_end_day)
             self.dataSetQueries.append(dsQuery)
 
         EDClog.write("\tSuccessful.\n")
@@ -276,7 +388,7 @@ class ECHOrequest(object):
             EDClog.write("\t***ERROR: Couldn't run statvfs on directory root\n")
             return False
         else:
-            self.availDiskSpaceMB = st.f_bavail * st.f_frsize / math.pow(1024,2)
+            self.availDiskSpaceMB = st.f_bavail * st.f_frsize / math.pow(1024, 2)
             return True
 
     def getDiskSpaceAvail(self):
@@ -301,8 +413,9 @@ class ECHOrequest(object):
             if ((len(collElemRoot) == 0) or (len(collElemRoot) > 1)):
                 EDClog.write("ECHOrequest::getReqData\n\t***IGNORING REQUEST\n")
                 EDClog.write("\tYour dataset query: " + queryStr +
-                            " returned " + str(len(collElemRoot)) +
-                            " results, should be 1, check you query criteria\n")
+                             " returned " + str(len(collElemRoot)) +
+                             " results, should be 1, check your query criteria\n")
+                EDClog.write(ET.tostring(collElemRoot, pretty_print=True))
             else:
                 # If we reach this block we are confident there is 1, and only 1 result
                 # from the collection query.  Create a new collection object with a
@@ -331,7 +444,7 @@ class ECHOrequest(object):
                 except AttributeError:
                     begDateTime = "null"
                 else:
-                    # Remove trailing 'Z' from datetime value
+                    # Remove trailing 'Z' from datetime value (for DB insert)
                     begDateTime = resub('[Z]', '', begDateTime)
 
                 try:
@@ -372,7 +485,7 @@ class ECHOrequest(object):
                     self.dataSetQueries[i].getSpatialstr(),
                     self.dataSetQueries[i].getTemporalStr(),
                     self.maxDataFiles, "echo10")
-                #EDClog.write(ET.tostring(granElemRoot, pretty_print=True))
+                # EDClog.write(ET.tostring(granElemRoot, pretty_print=True))
 
                 # remember, 'self' is the ECHOrequest object, 'collContainer' stores
                 # the collections objects, which have a method 'getGranules'
@@ -409,10 +522,10 @@ class ECHOrequest(object):
                 doi = c.find('doi').text
 
                 self.collContainer.append(ECHOcollection(collID, shortName, archCtr, collDesc,
-                                          CbegDateTime, CendDateTime, doi))
+                                                         CbegDateTime, CendDateTime, doi))
                 self.numCollections += 1
 
-                collIndex = self.numCollections - 1     # 0 based index
+                collIndex = self.numCollections - 1  # 0 based index
             else:
                 EDClog.write("ECHOrequest::loadPendDwnld\n")
                 EDClog.write("\tPending collection {} already in collection container\n".format(collID))
@@ -448,7 +561,7 @@ class ECHOrequest(object):
                         lon = float(pp.find('longitude').text)
                         polyPoints.append((lat, lon))
 
-                accessURLs.append((g.find('accessURL').text,"NoMimeType"))
+                accessURLs.append((g.find('accessURL').text, "NoMimeType"))
                 localFileName = g.find('localFileName').text
 
                 granIndex = self.inGranules(collID, granID)
@@ -458,12 +571,12 @@ class ECHOrequest(object):
                         ECHOgranule(granID, granuleUR, sizeMB,
                                     GbegDateTime, GendDateTime, hasPolyPoints, polyPoints,
                                     w_bound, s_bound, e_bound, n_bound,
-                                    accessURLs, localFileName, numDwnldTrys+1))
+                                    accessURLs, localFileName, numDwnldTrys + 1))
                 else:
                     EDClog.write("ECHOrequest::loadPendDwnld\n")
                     EDClog.write("\tPending granule {} already in granule container\n".format(granID))
                     EDClog.write("\tIncrementing # of download trys\n")
-                    self.collContainer[collIndex].granContainer[granIndex].setnumtrys(numDwnldTrys+1)
+                    self.collContainer[collIndex].granContainer[granIndex].setnumtrys(numDwnldTrys + 1)
 
     def inCollections(self, cid):
         """
@@ -487,7 +600,7 @@ class ECHOrequest(object):
                 for g in coll.granContainer:
                     if g.egid == gid:
                         return index
-                    index +=1
+                    index += 1
         return -1
 
     def zapPending(self):
@@ -593,7 +706,8 @@ class ECHOrequest(object):
             try:
                 self.pdlFH = open(self.pdlfile, 'w')
             except IOError:
-                EDClog.write("\t****SEVERE: Couldn't reopen pending download file for writing {}\n".format(self.pdlfile))
+                EDClog.write(
+                    "\t****SEVERE: Couldn't reopen pending download file for writing {}\n".format(self.pdlfile))
                 pendingFileOk = False
             else:
                 try:
@@ -610,22 +724,30 @@ class ECHOrequest(object):
             else:
                 EDClog.write("\tSuccessful.\n")
 
+
 class ECHOdsQuery(object):
     def __init__(self,
                  sname,  # ECHO dataset short name
                  ver,  # ECHO dataset version
                  bbox,  # ECHO dataset bounding box dictionary
+                 tst,  # temporal search type (static or recurring)
                  sdt,  # ECHO dataset start date/time
-                 edt):  # ECHO dataset end date/time
+                 edt,  # ECHO dataset end date/time
+                 tsd, ted):  # temporal start and end day values
 
         self.snStr = "?shortName=" + sname
         self.vStr = "&version=" + ver
         self.bbStr = "&bounding_box=" + bbox['w'] + ',' + bbox['s'] + ',' + bbox['e'] + ',' + bbox['n']
-        self.tStr = "&temporal=" + sdt + ',' + edt
+
+        if (tst == "static"):
+            self.tStr = "&temporal=" + sdt + ',' + edt
+        else:
+            # Recurring temporal search
+            self.tStr = "&temporal=" + sdt + ',' + edt + ',' + str(tsd) + ',' + str(ted)
 
         self.w_bound = bbox['w']
-        self.s_bound = bbox['s']   # spatial elements to be transferred
-        self.e_bound = bbox['e']   # to corresponding collection object
+        self.s_bound = bbox['s']  # spatial elements to be transferred
+        self.e_bound = bbox['e']  # to corresponding collection object
         self.n_bound = bbox['n']
 
     def getDSqueryStr(self):
@@ -753,7 +875,7 @@ class ECHOclient(object):
             EDClog.write("\tYour query (" + queryURL + ")")
             EDClog.write("\tgot " + str(
                 hitsReceived) + " hits, increase 'resultsize' via command line, or refine download request\n")
-            EDClog.write("\t<Note: forcing 0 results because of the volume of hits>\n")
+            EDClog.write("\t<Note: forcing 0 collection results because of the volume of hits>\n")
             respRoot = ET.Element("results")
         else:
             try:
@@ -779,6 +901,7 @@ class ECHOcollection(object):
     """
     Collection and Dataset are interchangeable names to the same type of object
     """
+
     def __init__(self,
                  cid, csn, cac, ccd, bdt, edt, doi):
 
@@ -810,7 +933,7 @@ class ECHOcollection(object):
         self.numGranules = len(self.granRoot)
         if (self.numGranules > 0):
             for granule in self.granRoot.findall('result'):
-                polyPoints = []     # list of polypoint tuples
+                polyPoints = []  # list of polypoint tuples
                 accessURLs = []
                 w_bound = -180.0
                 e_bound = 180.0
@@ -820,7 +943,7 @@ class ECHOcollection(object):
                 egid = granule.get("echo_granule_id")
 
                 spatialGeometry = granule.find('Granule').find('Spatial').find(
-                        'HorizontalSpatialDomain').find('Geometry')
+                    'HorizontalSpatialDomain').find('Geometry')
 
                 if spatialGeometry is None:
                     # No spatial geometry information, which means it's orbit
@@ -833,7 +956,9 @@ class ECHOcollection(object):
                         boundaryPoints = spatialGeometry.find('GPolygon').find('Boundary')
                         if boundaryPoints is None:
                             EDClog.write("ECHOcollection::getGranules\n")
-                            EDClog.write("\t***FATAL ERROR: Missing bounding rectangle or Polygon points for granule {}\n".format(egid))
+                            EDClog.write(
+                                "\t***FATAL ERROR: Missing bounding rectangle or Polygon points for granule {}\n".format(
+                                    egid))
                             raise SystemExit
                         else:
                             HasPolyPoints = 1
@@ -950,6 +1075,7 @@ class ECHOcollection(object):
     def getInsertFailed(self):
         return self.dbInsertFailed
 
+
 class ECHOgranule(object):
     def __init__(self,
                  gid, ur, sizeMB, bdt, edt, ppflag, ppts,
@@ -964,7 +1090,7 @@ class ECHOgranule(object):
         self.begDateTime = bdt
         self.endDateTime = edt
         self.HasPolyPoints = ppflag
-        self.polyPoints = []    # list of polypoint objects, if any 'ppts' tuples
+        self.polyPoints = []  # list of polypoint objects, if any 'ppts' tuples
         self.w_bound = wbnd
         self.s_bound = sbnd
         self.e_bound = ebnd
@@ -1025,7 +1151,6 @@ class ECHOgranule(object):
 
         EDClog.write("##Local File Name     : {}\n".format(self.localFileName))
 
-
     def getGranuleSizeMB(self):
         return (self.granuleSizeMB)
 
@@ -1083,10 +1208,9 @@ class ECHOgranule(object):
     def getInsertFailed(self):
         return self.dbInsertFailed
 
+
 class ECHOpolypoint(object):
-
     def __init__(self, lat, lon):
-
         self.latitude = lat
         self.longitude = lon
         self.dbInsertFailed = False
@@ -1103,8 +1227,8 @@ class ECHOpolypoint(object):
     def getInsertFailed(self):
         return self.dbInsertFailed
 
-class ECHOdownloader(object):
 
+class ECHOdownloader(object):
     def __init__(self, ero, dbh):
         """
         :param ero: ECHO Request Object containing collections and granules
@@ -1114,7 +1238,7 @@ class ECHOdownloader(object):
                 adequate.
         """
         self.rootDir = ero.getDirRoot()
-        self.granuleQueue = []   # list of (egid, url, filename) tuples
+        self.granuleQueue = []  # list of (egid, url, filename) tuples
         self.granuleStatus = {}  # egid, true/false(0/1) flag dictionary
         self.dbHandle = dbh
 
@@ -1134,7 +1258,7 @@ class ECHOdownloader(object):
 
         EDClog.write("ECHOdownloader::downloadOk\n")
         EDClog.write("\tRequesting %d granules, at %f MB\n" %
-                    (totalNumGranules,totalDataSizeMB))
+                     (totalNumGranules, totalDataSizeMB))
 
         if totalDataSizeMB <= 0.0:
             EDClog.write("ECHOdownloader::downloadOk\n")
@@ -1143,16 +1267,16 @@ class ECHOdownloader(object):
             return True
 
         if totalDataSizeMB >= ero.getDiskSpaceAvail():
-            EDClog.write ("ECHOdownloader::downloadOk\n")
-            EDClog.write ("\t****ERROR: Total data size (%fMB) larger than available disk space (%fMB)\n" %
-                         (totalDataSizeMB,ero.getDiskSpaceAvail()))
+            EDClog.write("ECHOdownloader::downloadOk\n")
+            EDClog.write("\t****ERROR: Total data size (%fMB) larger than available disk space (%fMB)\n" %
+                         (totalDataSizeMB, ero.getDiskSpaceAvail()))
             return False
 
         if totalDataSizeMB > ero.dwnloadLimit:
-            EDClog.write ("ECHOdownloader::downloadOk\n")
-            EDClog.write ("\t****ERROR: Total data size (%fMB) larger than download limit (%fMB)\n" %
-                         (totalDataSizeMB,ero.dwnloadLimit))
-            EDClog.write ("\tIncrease download limit on command line\n")
+            EDClog.write("ECHOdownloader::downloadOk\n")
+            EDClog.write("\t****ERROR: Total data size (%fMB) larger than download limit (%fMB)\n" %
+                         (totalDataSizeMB, ero.dwnloadLimit))
+            EDClog.write("\tIncrease download limit on command line\n")
             return False
 
         return True
@@ -1220,7 +1344,7 @@ class ECHOdownloader(object):
         return True
 
     def getCollPath(self):
-        return(self.collPath)
+        return (self.collPath)
 
     def downloadGranules(self, ero):
 
@@ -1245,7 +1369,7 @@ class ECHOdownloader(object):
                         dd = int(g.begDateTime[8:10])
 
                         granDate = dt.date(yyyy, mm, dd)
-                        yday = granDate.toordinal() - dt.date(yyyy,1,1).toordinal() + 1
+                        yday = granDate.toordinal() - dt.date(yyyy, 1, 1).toordinal() + 1
                         ydayStr = '{0:03d}'.format(yday)
 
                         granPath = self.getCollPath() + '/' + str(yyyy) + '/' + ydayStr
@@ -1269,12 +1393,12 @@ class ECHOdownloader(object):
                                 # Granule already in the DB, don't download
                                 self.granuleStatus[g.egid] = 0
                         else:
-                            self.granuleStatus[g.egid] = -2 # granule directory make failed
+                            self.granuleStatus[g.egid] = -2  # granule directory make failed
                 else:
                     # Failed to make the collection directory, so ALL
                     # granules in this collection will NOT be downloaded
                     for g in cc.granContainer:
-                        self.granuleStatus[g.egid] = -2 # collection directory make failed
+                        self.granuleStatus[g.egid] = -2  # collection directory make failed
 
         # All granules, for all collections, that have not already been
         # downloaded before (already in the local 'echo' database), are
@@ -1314,8 +1438,8 @@ class ECHOdownloader(object):
 
         for egid, url, filename in self.granuleQueue:
             c = pycurl.Curl()
-            c.setopt(c.URL,url)
-            c.fp = open(filename,"wb")
+            c.setopt(c.URL, url)
+            c.fp = open(filename, "wb")
             c.setopt(c.WRITEDATA, c.fp)
             try:
                 c.perform()
@@ -1432,8 +1556,8 @@ class ECHOdownloader(object):
                         EDClog.write("\t***INFO: Download of granule {} failed\n".format(g.egid))
                         EDClog.write("\tRemoved local file {}\n".format(g.getLocalFileName()))
 
-class ECHOdbHandler(object):
 
+class ECHOdbHandler(object):
     def __init__(self, user, dbname, host):
         self.username = user
         self.database = dbname
@@ -1506,8 +1630,8 @@ class ECHOdbHandler(object):
         else:
             cedstr = "convert('" + ced + "',datetime)"
 
-        qStr += " values('" + cid + "','" + csn + "','" + cac +\
-            "','" + cde + "'," + cbdstr + ", " + cedstr + ", '" + doi + "');"
+        qStr += " values('" + cid + "','" + csn + "','" + cac + \
+                "','" + cde + "'," + cbdstr + ", " + cedstr + ", '" + doi + "');"
 
         if not self.makeDBinsert(qStr):
             EDClog.write("\tDB Insertion failure for collection {}\n".format(cid))
@@ -1550,12 +1674,12 @@ class ECHOdbHandler(object):
         else:
             gedstr = "convert('" + ged + "',datetime)"
 
-        qStr = qStr + " values('" + gid + "','" + cid + "','" + gur +\
-            "'," + gbdstr + ", " + gedstr + ", '" +\
-            str(ppf) + "'," +\
-            "'" + str(gwb) +\
-            "','" + str(gsb) + "','" + str(geb) + "','" + str(gnb) +\
-            "','" + glf + "');"
+        qStr = qStr + " values('" + gid + "','" + cid + "','" + gur + \
+               "'," + gbdstr + ", " + gedstr + ", '" + \
+               str(ppf) + "'," + \
+               "'" + str(gwb) + \
+               "','" + str(gsb) + "','" + str(geb) + "','" + str(gnb) + \
+               "','" + glf + "');"
         if not self.makeDBinsert(qStr):
             EDClog.write("\tDB Insertion failure for granule {}\n".format(gid))
             return False
@@ -1630,9 +1754,10 @@ class ECHOdbHandler(object):
                                 # Individual PolyPoint record insert failed
                                 pp.setInsertFailed(True)
 
+
 class ECHOptxHandler(object):
-    #Create an instance of a parser object, and give it the ability
-    #to remove comments from XML data
+    # Create an instance of a parser object, and give it the ability
+    # to remove comments from XML data
     txparser = ET.XMLParser(remove_comments=True)
 
     def __init__(self, c_pending_file, g_pending_file, p_pending_file, dbh):
@@ -1732,14 +1857,14 @@ class ECHOptxHandler(object):
 
         if ttype == 'C':
             xmltag = "collection"
-            fields = ['collID','shortName','archCenter','collDesc','begDateTime','endDateTime','doi']
+            fields = ['collID', 'shortName', 'archCenter', 'collDesc', 'begDateTime', 'endDateTime', 'doi']
         elif ttype == 'G':
             xmltag = "granule"
-            fields = ['granID','collID','granuleUR','sizeMB','begDateTime','endDateTime','hasPolyPoints',
-                      'w_bound','s_bound','e_bound','n_bound','localFileName']
+            fields = ['granID', 'collID', 'granuleUR', 'sizeMB', 'begDateTime', 'endDateTime', 'hasPolyPoints',
+                      'w_bound', 's_bound', 'e_bound', 'n_bound', 'localFileName']
         elif ttype == 'P':
             xmltag = "polypoint"
-            fields = ['granID','latitude','longitude']
+            fields = ['granID', 'latitude', 'longitude']
         else:
             EDClog.write("ECHOptxHandler::processtx\n")
             EDClog.write("\t****FATAL: Internal error, invalid transaction type ({})\n".format(ttype))
@@ -1749,7 +1874,8 @@ class ECHOptxHandler(object):
             pendTree = ET.parse(tfh, self.txparser)  # Use XML 'txparser' defined as class variable
         except ET.ParseError:
             EDClog.write("ECHOptxHandler::processtx\n")
-            EDClog.write("\tFATAL: Could not parse pending transaction XML file ({}), problem with XML syntax\n".format(tfn))
+            EDClog.write(
+                "\tFATAL: Could not parse pending transaction XML file ({}), problem with XML syntax\n".format(tfn))
             raise SystemExit
         else:
             # close the pending transaction file in case we need re-open it in write
@@ -1772,7 +1898,7 @@ class ECHOptxHandler(object):
             for f in fields:
                 values.append(transaction.find(f).text)
                 fStr += f
-                if n < (len(fields)-1):
+                if n < (len(fields) - 1):
                     fStr += ','
                 n += 1
             fStr += ')'
@@ -1789,14 +1915,14 @@ class ECHOptxHandler(object):
                         tStr = "convert('" + v + "',datetime)"
                 else:
                     tStr = "'" + v + "'"
-                if n < (len(values)-1):
+                if n < (len(values) - 1):
                     tStr += ','
                 n += 1
                 vStr += tStr
             vStr += ');'
 
             qStr = fStr + vStr
-            EDClog.write(qStr+"\n")
+            EDClog.write(qStr + "\n")
 
             if not self.dbHandle.makeDBinsert(qStr):
                 #
@@ -1925,8 +2051,6 @@ class ECHOptxHandler(object):
         lonelement.text = str(pobj.getLongitude())
 
 
-
-
 if __name__ == '__main__':
 
     runMgr = runManager()
@@ -1998,7 +2122,7 @@ if __name__ == '__main__':
         edloader = ECHOdownloader(echoReqObj, edbhand)
         edloader.downloadGranules(echoReqObj)
         edloader.cleanup(echoReqObj)
-        echoReqObj.savePending()        # file downloads
+        echoReqObj.savePending()  # file downloads
 
         # Update the local 'echo' database with new collection and
         # granule information.
@@ -2007,8 +2131,7 @@ if __name__ == '__main__':
         # Save any DB insert failures using the pending transaction
         # handler
         ptxObj.savePendTx(echoReqObj)
-    else:   # Query ECHO only
+    else:  # Query ECHO only
         for i in range(echoReqObj.numCollections):
             echoReqObj.collContainer[i].showCollectionInfo()
             echoReqObj.collContainer[i].showGranuleInfo()
-
