@@ -1,51 +1,86 @@
 <!-- ECHO Download Request
-     Version: 3/2015
+     Version: 11/2015
 	 Notes:
-	 1. Format of 'startdatetime' and 'enddatetime' MUST BE:
-	    "YYYY-MM-DDTHH:MM:SSZ"
-		where:
-		   YYYY is the year
-		   MM   is the month
-		   DD   is the day
-		   T    separate date and time
-		   HH   is hour in UTC
-		   MM   is minutes UTC
-		   SS   is seconds UTC
-     2. Comments in this XML file are ignored
-     3. The 'dirRoot' attribute of the 'echoDownload' element
+	 1. Comments in this XML file are ignored
+
+	 2. The 'dirRoot' attribute of the 'echoDownload' element
         should point to the top level directory where ECHO
         data is to be stored (used if command line option
         -o D is specified)
         ** The 'dirRoot' attribute is REQUIRED **
+
+     3. November 2015 - mcb
+	    Added new 'temporal' element with required "type" attribute.  This
+	    allows two methods for searching the ECHO database:
+
+	    a. Static temporal searching with a starting datetime string and
+	       ending datetime string
+	    b. Recurring temporal search to allow specification of a recurring
+	       starting month/day/time and ending month/day/time for a
+	       specified starting and ending year range.
+
+	    Temporal searching can now be specified as one of the following examples:
+	    (note the 'T' separator in static temporal searches is required to
+	    separate date and time information)
+
+	    <temporal type="static">
+	       <startdatetime dtstr="YYYY-MM-DDTHH:MM:SSZ" />
+	       <enddatetime dtstr="YYYY-MM-DDTHH:MM:SSZ" />
+	    </temporal>
+
+	    -or-
+
+	    <temporal type="recurring">
+	       <year yr_start="2005" yr_end="2007" />
+	       <start mon_start="06" day_start="01" tim_start="00:00:00Z" />
+	       <end   mon_end="07" day_end="31" tim_end="23:00:00Z" />
+	    </temporal>
+
+	    So for example, the "recurring" temporal search above would tell
+	    the ECHO service to find all collection (matching the collection criteria)
+	    granules for the recurring criteria, June 1st 00Z to July 31st 23Z,
+	    for the years 2005-2007.
 -->
 <echoDownload dirRoot="/home/mark/PycharmProjects/EDclient/ECHO">
   <dataset shortname="AE_L2A">
      <version v="3" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
-     <startdatetime dtstr="2007-04-07T00:00:00Z" />
-     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     <temporal type="static">
+         <startdatetime dtstr="2007-04-07T00:00:00Z" />
+         <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     </temporal>
   </dataset>
   <dataset shortname="AE_Rain">
      <version v="2" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
-     <startdatetime dtstr="2007-04-07T00:00:00Z" />
-     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     <temporal type="static">
+         <startdatetime dtstr="2007-04-07T00:00:00Z" />
+         <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     </temporal>
   </dataset>
   <dataset shortname="MYD06_L2">
      <version v="5" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
-     <startdatetime dtstr="2007-04-07T00:00:00Z" />
-     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     <temporal type="static">
+          <startdatetime dtstr="2007-04-07T00:00:00Z" />
+          <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     </temporal>
   </dataset>
   <dataset shortname="TRMM_1B11">
      <version v="7" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
-     <startdatetime dtstr="2007-04-07T00:00:00Z" />
-     <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     <temporal type="static">
+          <startdatetime dtstr="2007-04-07T00:00:00Z" />
+          <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     </temporal>
   </dataset>
   <dataset shortname="TRMM_2A12">
      <version v="7" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
+     <temporal type="static">
+          <startdatetime dtstr="2007-04-07T00:00:00Z" />
+          <enddatetime dtstr="2007-04-08T23:59:59Z" />
+     </temporal>
      <startdatetime dtstr="2007-04-07T00:00:00Z" />
      <enddatetime dtstr="2007-04-08T23:59:59Z" />
   </dataset>
