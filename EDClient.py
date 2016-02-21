@@ -2084,8 +2084,6 @@ if __name__ == '__main__':
     # The request object is used to manage request information and
     # retrieved information.
     echoReqObj = ECHOrequest(runMgr)
-    print("Root: "+echoReqObj.getDirRoot())
-    raise SystemExit
 
     #############################################################################
     # Per discussion with Lanxi Min on 9/2/2015, we decided that to
