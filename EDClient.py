@@ -190,7 +190,6 @@ class ECHOrequest(object):
                 EDClog.write("\tMissing DATA directory root in XML request file\n")
                 return False
 
-
         # Check to make sure that the directory root exists, and is
         # writeable by the user running the script
         if (not os.access(self.directoryRoot, os.F_OK)):
@@ -271,10 +270,10 @@ class ECHOrequest(object):
                         etFlag = False
                         for tcrit in criteria:
                             if (tcrit.tag == "startdatetime"):
-                                sdatetime = tcrit.text
+                                sdatetime = tcrit.get("dtstr", default="")
                                 stFlag = True
                             if (tcrit.tag == "enddatetime"):
-                                edatetime = tcrit.text
+                                edatetime = tcrit.get("dtstr", default="")
                                 etFlag = True
 
                         if (not (stFlag and etFlag)):
@@ -2082,8 +2081,6 @@ if __name__ == '__main__':
     runMgr = runManager()
     EDClog = runMgr.getLogFH()
 
-    # v1.2.0: Moved creation of ECHO request object here since we now will
-    # need to use the 'dbFlag' attribute to enable/disable DB operations.
     # The request object is used to manage request information and
     # retrieved information.
     echoReqObj = ECHOrequest(runMgr)
