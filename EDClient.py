@@ -1405,7 +1405,7 @@ class ECHOdownloader(object):
                             # If this granule has NOT already been inserted into the
                             # local 'echo' database, add it to the download queue
                             # v1.2.0 Only use check the DB if this is a useDB=True request
-                            if ero.getDBflag():
+                            if ero.getDBflag() == "True":
                                 qStr = "select granuleUR from granules where granID = '{}'".format(g.egid)
                                 qResults = self.dbHandle.makeDBquery(qStr)
                                 if not qResults:
@@ -1729,11 +1729,11 @@ class ECHOdbHandler(object):
         EDClog.write("\tDB polyPoint insertion success for granule {}\n".format(gid))
         return True
 
-    def update(self, erocc):
+    def update(self, ero):
         """
         :param ero: The ECHO Request Object containing collections and granules
         """
-        for c in erocc:
+        for c in ero.collContainer:
             cid = c.getid()
             processGranules = False
             if c.getNumGranules() > 0:
@@ -2113,7 +2113,7 @@ if __name__ == '__main__':
     # v1.2.0 pending DB transactions are processed ONLY if user has
     # enabled DB tracking
     ptxObj = ECHOptxHandler("_ptxC.xml", "_ptxG.xml", "_ptxP.xml", edbhand)
-    if echoReqObj.getDBflag():
+    if echoReqObj.getDBflag() == "True":
         if ptxObj.havePending():
             ptxObj.openPending()
             # If any db transaction problems occur in 'processPending' EDClient
@@ -2143,7 +2143,7 @@ if __name__ == '__main__':
         #
         # v1.2.0 In the case of a useDB=False run, forget about any
         # pending file downloads
-        if echoReqObj.getDBflag():
+        if echoReqObj.getDBflag() == "True":
             if echoReqObj.getHavePendDwnld():
                 echoReqObj.loadPendDwnld()
                 echoReqObj.zapPending()
@@ -2162,7 +2162,7 @@ if __name__ == '__main__':
         # database with new collection and granule information, and
         # save any DB transaction failures IF AND ONLY IF this was
         # a useDB=True request
-        if echoReqObj.getDBflag():
+        if echoReqObj.getDBflag() == "True":
             echoReqObj.savePending()  # file downloads
             edbhand.update(echoReqObj)
             ptxObj.savePendTx(echoReqObj)
