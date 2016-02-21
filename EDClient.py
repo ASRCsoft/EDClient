@@ -179,7 +179,7 @@ class ECHOrequest(object):
             EDClog.write("\tuseDB flag not set to True or False, check\n")
             return False
 
-        if self.dbFlag:
+        if self.dbFlag == 'True':
             self.directoryRoot = self.edrRoot.get('dbRoot', default="")
             if len(self.directoryRoot) == 0:
                 EDClog.write("\tMissing DB directory root in XML request file\n")
@@ -2084,6 +2084,8 @@ if __name__ == '__main__':
     # The request object is used to manage request information and
     # retrieved information.
     echoReqObj = ECHOrequest(runMgr)
+    print("Root: "+echoReqObj.getDirRoot())
+    raise SystemExit
 
     #############################################################################
     # Per discussion with Lanxi Min on 9/2/2015, we decided that to
