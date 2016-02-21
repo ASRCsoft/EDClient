@@ -4,7 +4,7 @@
 
      Version: 7/2015
 
-	   The 'dirRoot' attribute of the 'echoDownload' element
+       The 'dirRoot' attribute of the 'echoDownload' element
        should point to the top level directory where ECHO
        data is to be stored (used if command line option
        -o D is specified)
@@ -43,7 +43,7 @@
 	    granules for the recurring criteria, June 1st 00Z to July 31st 23Z,
 	    for the years 2005-2007.
 
-	 Version: 02/2016
+    Version: 02/2016
 
        Added 'useDB' attribute to 'echoDownload' element.  Set to
        either 'T' or 'F' to enable/disable DB file tracking. This is
@@ -58,9 +58,9 @@
        downloads if DB tracking of files is disabled ('useDB' is
        set false (False)).  This is required if useDB is False
 -->
-<echoDownload useDB="False",
-        dbRoot="/home/mark/PycharmProjects/EDClient/ECHO",
-        dataRoot="/home/mark/PycharmProjects/EDClient/DATA">
+<echoDownload useDB="False"
+              dbRoot="/home/mark/PycharmProjects/EDClient/ECHO"
+              dataRoot="/home/mark/PycharmProjects/EDClient/DATA">
   <dataset shortname="AE_L2A">
      <version v="3" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
