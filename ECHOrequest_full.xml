@@ -58,9 +58,7 @@
        downloads if DB tracking of files is disabled ('useDB' is
        set false (False)).  This is required if useDB is False
 -->
-<echoDownload useDB="False"
-              dbRoot="/home/mark/PycharmProjects/EDClient/ECHO"
-              dataRoot="/home/mark/PycharmProjects/EDClient/DATA">
+<echoDownload useDB="False" dbRoot="/home/mark/PycharmProjects/EDClient/ECHO" dataRoot="/home/mark/PycharmProjects/EDClient/DATA">
   <dataset shortname="AE_L2A">
      <version v="3" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
