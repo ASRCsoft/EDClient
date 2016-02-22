@@ -176,19 +176,24 @@ class ECHOrequest(object):
         # Get DB tracking flag from XML request file, exit if missing
         self.dbFlag = self.edrRoot.get('useDB', default="")
         if (self.dbFlag != 'True' and self.dbFlag != 'False'):
-            EDClog.write("\tuseDB flag not set to True or False, check\n")
+            EDClog.write("\tuseDB flag not set to True or False, check XML request file\n")
+            return False
+
+        dbroot = self.edrRoot.get("dbRoot")
+        dataroot = self.edrRoot.get("dataRoot")
+
+        if dbroot is None or dataroot is None:
+            EDClog.write("\tMissing DB path or DATA path in XML request file, both required\n")
+            return False
+
+        if dbroot == dataroot:
+            EDClog.write("\tDB root and DATA root cannot be same path, fix XML request file\n")
             return False
 
         if self.dbFlag == 'True':
-            self.directoryRoot = self.edrRoot.get('dbRoot', default="")
-            if len(self.directoryRoot) == 0:
-                EDClog.write("\tMissing DB directory root in XML request file\n")
-                return False
+            self.directoryRoot = dbroot
         else:
-            self.directoryRoot = self.edrRoot.get('dataRoot', default="")
-            if len(self.directoryRoot) == 0:
-                EDClog.write("\tMissing DATA directory root in XML request file\n")
-                return False
+            self.directoryRoot = dataroot
 
         # Check to make sure that the directory root exists, and is
         # writeable by the user running the script
@@ -242,8 +247,8 @@ class ECHOrequest(object):
             for criteria in dataset:
                 critname = criteria.tag
                 if (critname == "boundingbox"):
-                    if ((criteria.get("w") == None) or (criteria.get("s") == None) or
-                            (criteria.get("e") == None) or (criteria.get("n") == None)):
+                    if ((criteria.get("w") is None) or (criteria.get("s") is  None) or
+                            (criteria.get("e") is None) or (criteria.get("n") is None)):
                         EDClog.write("\tInvalid bounding box attribute in XML input, (valid are 'w','s','e','n')")
                         return False
                     else:
@@ -2108,7 +2113,7 @@ if __name__ == '__main__':
     # user = mark
     # password = "<your database password, including the quotes>"
 
-    edbhand = ECHOdbHandler("mark", "echo", "asrcserv3.asrc.cestm.albany.edu")
+    edbhand = ECHOdbHandler("mark", "echotest", "asrcserv3.asrc.cestm.albany.edu")
 
     # v1.2.0 pending DB transactions are processed ONLY if user has
     # enabled DB tracking
