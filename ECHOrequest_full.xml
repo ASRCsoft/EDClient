@@ -46,17 +46,19 @@
     Version: 02/2016
 
        Added 'useDB' attribute to 'echoDownload' element.  Set to
-       either 'T' or 'F' to enable/disable DB file tracking. This is
-       a REQUIRED attribute
+       either 'True' or 'False' to enable/disable DB file tracking.
+       This is a REQUIRED attribute
 
        Changed 'dirRoot' attribute of 'echoDownload' element
-       to 'dbRoot'.  'dirRoot' is used if the 'useDB' element is
-       set true (True). This is required if useDB is true
+       to 'dbRoot'.  'dbRoot' is used if the 'useDB' element is
+       set true (True). This is required and cannot be the same as
+       'dataRoot'
 
        Added 'dataRoot' attribute to 'echoDownload' element.  The
        'dataRoot' attribute is used as a directory root for file
        downloads if DB tracking of files is disabled ('useDB' is
-       set false (False)).  This is required if useDB is False
+       set false (False)).  This is required and cannot be the
+       same as 'dbRoot'
 -->
 <echoDownload useDB="False" dbRoot="/home/mark/PycharmProjects/EDClient/ECHO" dataRoot="/home/mark/PycharmProjects/EDClient/DATA">
   <dataset shortname="AE_L2A">
