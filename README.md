@@ -1,6 +1,8 @@
 ### **EDClient
 ### **_(NASA ECHO Data Client)_
 
+### Version 1.0.0
+### July 2015
 EDClient is a Python client application for querying, and optionally
 downloading, data from the NASA Earth Observing System (EOS) Clearning
 House (ECHO).  ECHO is a spatial and temporal metadata registry with
@@ -33,13 +35,19 @@ if any transactions are pending, attempts to reprocess them.  Any
 outstanding database transactions (failures) will cause EDClient to
 abort.  This was designed to maintain integrity of the metadata database.
 
+### Version 1.1.0
+### November 2015
+Added temporal search functionality
+
+### Version 1.2.0
+### February 2016
+
 ####Without Database Option
 EDClient can be run to download data files through ECHO, without tracking
 the downloaded files in a database.  In this case, the data is downloaded
 to a separate data directory to maintain integrity of the database and
 files tracked through that database.
 
-2/2016 Revisions
 Added 'useDB' attribute to 'echoDownload' element.  Set to either
 'True' or 'False' to enable/disable DB file tracking.  Required field
 
