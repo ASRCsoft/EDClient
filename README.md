@@ -39,7 +39,20 @@ the downloaded files in a database.  In this case, the data is downloaded
 to a separate data directory to maintain integrity of the database and
 files tracked through that database.
 
-Usage:
+2/2016 Revisions
+Added 'useDB' attribute to 'echoDownload' element.  Set to either
+'True' or 'False' to enable/disable DB file tracking.  Required field
+
+Changed 'dirRoot' attribute of 'echoDownload' element to 'dbRoot'.
+'dbRoot' is used if the 'useDB' element is set true.  Required and
+cannot be the same as 'dataRoot'.
+
+Added 'dataRoot' attribute to 'echoDownload' element.  The 'dataRoot'
+attribute is used as a directory root for file downloads if DB 
+tracking of files is disabled ('useDB' is set false). Required and
+cannot be the same as 'dbRoot'.
+
+####Usage:
 python EDClient.py [-h] [-o OPMODE] [-r RESULTSIZE] [-s DOWNLOADLIMIT] xmlfile
 
 positional arguments:
@@ -53,4 +66,3 @@ optional arguments:
      Allowable # of data files to download (Max=2000, Default=1000)
   -s DOWNLOADLIMIT, --downloadlimit DOWNLOADLIMIT
      Maximum download size in MegaBytes (Max=5120, Default=3072)
-Date: Jan 11, 2016 :Lanxi added to the development team
