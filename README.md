@@ -40,7 +40,7 @@ abort.  This was designed to maintain integrity of the metadata database.
 Added temporal search functionality
 
 ### Version 1.2.0
-### February 2016
+### February 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 2016
 
 ####Without Database Option
 EDClient can be run to download data files through ECHO, without tracking
