@@ -461,6 +461,11 @@ class ECHOrequest(object):
                     collDesc = result.find('Collection').find('Description').text
                 except AttributeError:
                     collDesc = "NoDescription"
+                else:
+                    # v1.2.0 Bug fix.  The MODIS data description has embedded unicode
+                    # characters that cause trouble when trying to print the collection
+                    # description as an ASCII string.
+                    collDesc = collDesc.encode('utf-8')
 
                 try:
                     begDateTime = result.find('Collection').find('Temporal').find('RangeDateTime').find(
