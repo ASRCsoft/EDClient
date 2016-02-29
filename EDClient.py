@@ -1,8 +1,18 @@
 """
    Python Module: 'EDClient' (ECHO Data Client)
-   Version Date : November 2015
    Atmospheric Sciences Research Center
    Python Env   : Anaconda Python (2.7.10)
+
+   Revision History:
+
+        Version Modification Details
+        v1.0.0, July 2015           mcb, ASRC
+                Initial release
+        v1.1.0, November 2015       mcb, ASRC
+                Added temporal search capability
+        v1.2.0, February 2016       mcb, ASRC
+                Added optional DB tracking capability
+
 """
 import os
 import argparse
@@ -15,7 +25,7 @@ import MySQLdb
 from lxml.etree import XMLSyntaxError
 from re import sub as resub
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 # We should ignore SIGPIPE when using pycurl.NOSIGNAL - see
 # the libcurl tutorial for more info.
@@ -163,13 +173,27 @@ class ECHOrequest(object):
             EDClog.write("\tDownload XML request file has no dataset specifications\n")
             return False
 
-        # Check that the user provided a default root directory for
-        # data storage
-        self.directoryRoot = self.edrRoot.get('dirRoot', default="")
-
-        if len(self.directoryRoot) == 0:
-            EDClog.write("\tMissing directory root in XML request file\n")
+        # Get DB tracking flag from XML request file, exit if missing
+        self.dbFlag = self.edrRoot.get('useDB', default="")
+        if (self.dbFlag != 'True' and self.dbFlag != 'False'):
+            EDClog.write("\tuseDB flag not set to True or False, check XML request file\n")
             return False
+
+        dbroot = self.edrRoot.get("dbRoot")
+        dataroot = self.edrRoot.get("dataRoot")
+
+        if dbroot is None or dataroot is None:
+            EDClog.write("\tMissing DB path or DATA path in XML request file, both required\n")
+            return False
+
+        if dbroot == dataroot:
+            EDClog.write("\tDB root and DATA root cannot be same path, fix XML request file\n")
+            return False
+
+        if self.dbFlag == 'True':
+            self.directoryRoot = dbroot
+        else:
+            self.directoryRoot = dataroot
 
         # Check to make sure that the directory root exists, and is
         # writeable by the user running the script
@@ -223,8 +247,8 @@ class ECHOrequest(object):
             for criteria in dataset:
                 critname = criteria.tag
                 if (critname == "boundingbox"):
-                    if ((criteria.get("w") == None) or (criteria.get("s") == None) or
-                            (criteria.get("e") == None) or (criteria.get("n") == None)):
+                    if ((criteria.get("w") is None) or (criteria.get("s") is  None) or
+                            (criteria.get("e") is None) or (criteria.get("n") is None)):
                         EDClog.write("\tInvalid bounding box attribute in XML input, (valid are 'w','s','e','n')")
                         return False
                     else:
@@ -251,10 +275,10 @@ class ECHOrequest(object):
                         etFlag = False
                         for tcrit in criteria:
                             if (tcrit.tag == "startdatetime"):
-                                sdatetime = tcrit.text
+                                sdatetime = tcrit.get("dtstr", default="")
                                 stFlag = True
                             if (tcrit.tag == "enddatetime"):
-                                edatetime = tcrit.text
+                                edatetime = tcrit.get("dtstr", default="")
                                 etFlag = True
 
                         if (not (stFlag and etFlag)):
@@ -437,6 +461,11 @@ class ECHOrequest(object):
                     collDesc = result.find('Collection').find('Description').text
                 except AttributeError:
                     collDesc = "NoDescription"
+                else:
+                    # v1.2.0 Bug fix.  The MODIS data description has embedded unicode
+                    # characters that cause trouble when trying to print the collection
+                    # description as an ASCII string.
+                    collDesc = collDesc.encode('utf-8')
 
                 try:
                     begDateTime = result.find('Collection').find('Temporal').find('RangeDateTime').find(
@@ -495,6 +524,9 @@ class ECHOrequest(object):
 
     def getHavePendDwnld(self):
         return self.havePendDwnld
+
+    def getDBflag(self):
+        return self.dbFlag
 
     def loadPendDwnld(self):
 
@@ -723,7 +755,6 @@ class ECHOrequest(object):
                 EDClog.write(ET.tostring(xmlroot, pretty_print=True))
             else:
                 EDClog.write("\tSuccessful.\n")
-
 
 class ECHOdsQuery(object):
     def __init__(self,
@@ -1383,15 +1414,19 @@ class ECHOdownloader(object):
 
                             # If this granule has NOT already been inserted into the
                             # local 'echo' database, add it to the download queue
-                            qStr = "select granuleUR from granules where granID = '{}'".format(g.egid)
-                            qResults = self.dbHandle.makeDBquery(qStr)
-                            if not qResults:
-                                # This granule is NOT already in the DB, add it to the
-                                # download queue
-                                self.granuleQueue.append((g.egid, granuleURL, granuleFilename))
+                            # v1.2.0 Only use check the DB if this is a useDB=True request
+                            if ero.getDBflag() == "True":
+                                qStr = "select granuleUR from granules where granID = '{}'".format(g.egid)
+                                qResults = self.dbHandle.makeDBquery(qStr)
+                                if not qResults:
+                                    # This granule is NOT already in the DB, add it to the
+                                    # download queue
+                                    self.granuleQueue.append((g.egid, granuleURL, granuleFilename))
+                                else:
+                                    # Granule already in the DB, don't download
+                                    self.granuleStatus[g.egid] = 0
                             else:
-                                # Granule already in the DB, don't download
-                                self.granuleStatus[g.egid] = 0
+                                self.granuleQueue.append((g.egid, granuleURL, granuleFilename))
                         else:
                             self.granuleStatus[g.egid] = -2  # granule directory make failed
                 else:
@@ -2056,6 +2091,10 @@ if __name__ == '__main__':
     runMgr = runManager()
     EDClog = runMgr.getLogFH()
 
+    # The request object is used to manage request information and
+    # retrieved information.
+    echoReqObj = ECHOrequest(runMgr)
+
     #############################################################################
     # Per discussion with Lanxi Min on 9/2/2015, we decided that to
     # insure local 'echo' database integrity, the first process should
@@ -2068,7 +2107,7 @@ if __name__ == '__main__':
     #
     # Create local 'echo' database handler object. Note that there is
     # no password information hardcoded here. Just pass it (1) the
-    # database username, (2) the database name, and (3) the databaser
+    # database username, (2) the database name, and (3) the database
     # server address.
     #
     # On the system you are running 'EDClient.py' you must create a
@@ -2078,23 +2117,22 @@ if __name__ == '__main__':
     # [client]
     # user = mark
     # password = "<your database password, including the quotes>"
-    #
-    edbhand = ECHOdbHandler("mark", "echo", "asrcserv3.asrc.cestm.albany.edu")
 
+    edbhand = ECHOdbHandler("mark", "echotest", "asrcserv3.asrc.cestm.albany.edu")
+
+    # v1.2.0 pending DB transactions are processed ONLY if user has
+    # enabled DB tracking
     ptxObj = ECHOptxHandler("_ptxC.xml", "_ptxG.xml", "_ptxP.xml", edbhand)
-    if ptxObj.havePending():
-        ptxObj.openPending()
-        # If any db transaction problems occur in 'processPending' EDClient
-        # will terminate itself
-        ptxObj.processPending()
+    if echoReqObj.getDBflag() == "True":
+        if ptxObj.havePending():
+            ptxObj.openPending()
+            # If any db transaction problems occur in 'processPending' EDClient
+            # will terminate itself
+            ptxObj.processPending()
 
     #############################################################################
 
-    # Make a ECHO request object to manage request information and
-    # retrieved information.  Make ECHO client object to manage
-    # communication with service
-    echoReqObj = ECHOrequest(runMgr)
-
+    # Make ECHO client object to manage communication with web service
     echoClient = ECHOclient(runMgr.getMaxFiles())
 
     # Get collection and granule information from ECHO
@@ -2112,25 +2150,33 @@ if __name__ == '__main__':
         # collection/granule objects.  Load the pending download
         # information and then get rid of the current file.  Exit
         # on any failures here
-        if echoReqObj.getHavePendDwnld():
-            echoReqObj.loadPendDwnld()
-            echoReqObj.zapPending()
+        #
+        # v1.2.0 In the case of a useDB=False run, forget about any
+        # pending file downloads
+        if echoReqObj.getDBflag() == "True":
+            if echoReqObj.getHavePendDwnld():
+                echoReqObj.loadPendDwnld()
+                echoReqObj.zapPending()
 
-        # Downloader needs the DB handle object for peeking into the
-        # local 'echo' database to see if a granule has already been
-        # downloaded.
+        # v1.2.0 Downloader ONLY needs the DB handle object for
+        # peeking into the local 'echo' database to see if a
+        # granule has already been downloaded, IF AND ONLY IF this
+        # is a useDB=True request.  The downloader will only use
+        # the DB check if the request object DB flag is set true
         edloader = ECHOdownloader(echoReqObj, edbhand)
         edloader.downloadGranules(echoReqObj)
+        # Remove (cleanup) any partial file downloads
         edloader.cleanup(echoReqObj)
-        echoReqObj.savePending()  # file downloads
 
-        # Update the local 'echo' database with new collection and
-        # granule information.
-        edbhand.update(echoReqObj)
+        # v1.2.0 Only save pending file downloads and update local
+        # database with new collection and granule information, and
+        # save any DB transaction failures IF AND ONLY IF this was
+        # a useDB=True request
+        if echoReqObj.getDBflag() == "True":
+            echoReqObj.savePending()  # file downloads
+            edbhand.update(echoReqObj)
+            ptxObj.savePendTx(echoReqObj)
 
-        # Save any DB insert failures using the pending transaction
-        # handler
-        ptxObj.savePendTx(echoReqObj)
     else:  # Query ECHO only
         for i in range(echoReqObj.numCollections):
             echoReqObj.collContainer[i].showCollectionInfo()

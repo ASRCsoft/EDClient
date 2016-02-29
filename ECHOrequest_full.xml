@@ -1,16 +1,18 @@
 <!-- ECHO Download Request
+     Notes:
+     Comments in this XML file are ignored
+
+     Version: 7/2015
+
+       The 'dirRoot' attribute of the 'echoDownload' element
+       should point to the top level directory where ECHO
+       data is to be stored (used if command line option
+       -o D is specified)
+       ** The 'dirRoot' attribute is REQUIRED **
+
      Version: 11/2015
-	 Notes:
-	 1. Comments in this XML file are ignored
 
-	 2. The 'dirRoot' attribute of the 'echoDownload' element
-        should point to the top level directory where ECHO
-        data is to be stored (used if command line option
-        -o D is specified)
-        ** The 'dirRoot' attribute is REQUIRED **
-
-     3. November 2015 - mcb
-	    Added new 'temporal' element with required "type" attribute.  This
+        Added new 'temporal' element with required "type" attribute.  This
 	    allows two methods for searching the ECHO database:
 
 	    a. Static temporal searching with a starting datetime string and
@@ -40,8 +42,25 @@
 	    the ECHO service to find all collection (matching the collection criteria)
 	    granules for the recurring criteria, June 1st 00Z to July 31st 23Z,
 	    for the years 2005-2007.
+
+    Version: 02/2016
+
+       Added 'useDB' attribute to 'echoDownload' element.  Set to
+       either 'True' or 'False' to enable/disable DB file tracking.
+       This is a REQUIRED attribute
+
+       Changed 'dirRoot' attribute of 'echoDownload' element
+       to 'dbRoot'.  'dbRoot' is used if the 'useDB' element is
+       set true (True). This is required and cannot be the same as
+       'dataRoot'
+
+       Added 'dataRoot' attribute to 'echoDownload' element.  The
+       'dataRoot' attribute is used as a directory root for file
+       downloads if DB tracking of files is disabled ('useDB' is
+       set false (False)).  This is required and cannot be the
+       same as 'dbRoot'
 -->
-<echoDownload dirRoot="/home/mark/PycharmProjects/EDclient/ECHO">
+<echoDownload useDB="False" dbRoot="/home/mark/PycharmProjects/EDClient/ECHO" dataRoot="/home/mark/PycharmProjects/EDClient/DATA">
   <dataset shortname="AE_L2A">
      <version v="3" />
      <boundingbox w="-180.0" s="-90.0" e="180.0" n="90.0" />
